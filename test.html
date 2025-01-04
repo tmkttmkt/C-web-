@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C言語オンラインコンパイラ</title>
+    <style>
+        #editor {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-size: 16px;
+            font-family: "Courier New", Courier, monospace;
+            background-color: #f9f9f9;
+            outline: none;
+            white-space: pre-wrap;
+        }
+        #output {
+            width: 100%;
+            height: 150px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #f0f0f0;
+            overflow: auto;
+        }
+
+
+        .keyword {
+            color: blue;
+            font-weight: bold;
+        }
+
+        .string {
+            color: green;
+        }
+
+        .comment {
+            color: gray;
+            font-style: italic;
+        }
+
+        .number {
+            color: red;
+        }
+
+        .function {
+            color: darkorange;
+        }
+    </style>
+</head>
+<body>
+    <h1>C言語オンラインコンパイラ</h1>
+    <div id="editor" contenteditable="true">
+#include "stdio.h"
+
+int main() {
+    printf("Hello, World!\n");
+    return 0;
+}
+    </div>
+    <button onclick="highlightCode()">キーワードに色を付ける</button>
+    <button onclick="exe()">コンパイルしてexeファイル</button>
+    <button onclick="result()">コンパイルして実行できません!!</button>
+    <h2>出力結果は今は使いません!!</h2>
+    <div id="output"></div>
+
+    <script>
+        let codeContent=""; 
+        const keywords = [
+            'int', 'float', 'double', 'char', 'void', 'if', 'else', 'while', 'for', 'return', 'printf', 'scanf', 'include'
+        ];
+        const functions = ['printf', 'scanf'];
+
+        function highlightCode() {
+            // エディタ内のテキストを保持
+            codeContent = document.getElementById('editor').innerText;
+            let highlightedCode = codeContent;
+            
+            // 特殊文字をエスケープしてHTMLに変換
+            highlightedCode = highlightedCode.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // コメントを色付け（修正）
+            highlightedCode = highlightedCode.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="comment">$1</span>');
+            highlightedCode = highlightedCode.replace(/(\/\/[^\n]*)/g, '<span class="comment">$1</span>');
+            // 数値を色付け
+            highlightedCode = highlightedCode.replace(/\b(\d+)\b/g, '<span class="number">$1</span>');
+            // キーワードを色付け
+            highlightedCode = highlightedCode.replace(new RegExp('\\b(' + keywords.join('|') + ')\\b', 'g'), '<span class="keyword">$1</span>');
+            // 関数名を色付け
+            highlightedCode = highlightedCode.replace(new RegExp('\\b(' + functions.join('|') + ')\\b', 'g'), '<span class="function">$1</span>');
+            
+            // 色付けされたコードをエディタに反映
+            document.getElementById('editor').innerHTML = highlightedCode;
+        }
+        function result() {
+            const code = document.getElementById('editor').innerText;
+            console.log(code);
+            fetch('/cmd/exe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text'
+                },
+                body: `%${code}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('output').innerText = data.output;
+            })
+            .catch(err => {
+                document.getElementById('output').innerText = "エラーが発生しました: " + err.message;
+            });
+        }
+        function exe() {
+            const code = document.getElementById('editor').innerText;
+
+            fetch('/cmd/com', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text'
+                },
+                body: `%${code}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('コンパイルエラーが発生しました');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // ダウンロードリンクを作成してクリック
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'program.exe';
+                a.click();
+                URL.revokeObjectURL(url);
+            })
+            .catch(err => {
+                alert('エラー: ' + err.message);
+            });
+        }
+    </script>
+</body>
+</html>
